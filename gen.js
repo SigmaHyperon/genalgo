@@ -1,3 +1,7 @@
+if(module){
+	var {fn, compose} = require('./pure');
+}
+
 class position {
 	constructor(x = 0, y = 0){
 		this.x = x;
@@ -11,16 +15,6 @@ class position {
 	}
 	equals(pos2){
 		return this.x === pos2.x && this.y === pos2.y;
-	}
-}
-class population{
-	constructor(){
-		this.population = [];
-		this.mergeFactor = 0.5;
-		this.mutationRate = 0.01;
-		this.dnaLength = 100;
-		this.popSize = 100;
-		this.generations = 100;
 	}
 }
 const mergeFactor = 0.5;
@@ -57,7 +51,6 @@ const randIntruction = () => {
 	const keys = Object.keys(instructions);
 	return arrayRandom(keys);
 }
-const compose = (...fns) => x => fns.reduce((v, f) => f(v), x);
 
 class dna {
 	constructor(code = []){
@@ -78,36 +71,27 @@ class dna {
 }
 dna.random = () => new dna(Array.from({length: dnaLength}, (value, key) => randIntruction()));
 
-class rocket{
-	constructor(){
-		this.dna = dna.random();
-		this.position = new position();
-	}
-	applyCode(){
-		const _self = this;
-		let steps = 0;
-		this.dna.code.some(element => {
-			_self.position = _self.position.add(instructions[element]);
-			steps++;
-			return _self.position.equals(target);
-		});
-		this.fitness = (dist - this.position.distance(target)) / (dist - steps);
-		return this;
-	}
+function evaluateGen(gen){
+	let steps = 0;
+	let pos = spawn;
+	gen.code.some(element => {
+		pos = pos.add(instructions[element]);
+		steps++;
+		return pos.equals(target);
+	});
+	return (dist - pos.distance(target)) / (dist - steps);
 }
 
 function initPop(){
-	return Array.from({length: popSize}, value => new rocket());
-}
-function resetPop(pop){
-	pop.forEach(element => element.position = new position());
-	return pop;
+	return Array.from({length: popSize}, () => dna.random());
 }
 function runPop(pop){
-	return pop.map(v => v.applyCode());
+	return pop.map(element => {
+		return {dna: element, fitness: evaluateGen(element)};
+	});
 }
 function sortPop(pop){
-	return pop.sort((a,b) => a.fitness - b.fitness).reverse();
+	return pop.sort((a,b) => a.fitness - b.fitness).reverse().map(v => v.dna);
 }
 function selectNextGeneration(pop){
 	return pop.slice(0, popSize / 2);
@@ -115,28 +99,24 @@ function selectNextGeneration(pop){
 function generateOffsprings(pop){
 	const newPop = [...pop];
 	while(newPop.length < popSize){
-		const offspring = new rocket();
-		offspring.dna = arrayRandom(pop).dna.merge(arrayRandom(pop).dna);
-		newPop.push(offspring);
+		newPop.push(arrayRandom(pop).merge(arrayRandom(pop)));
 	}
 	return newPop;
 }
 function mutatePop(pop){
-	pop.forEach(element => {
-		element.dna = element.dna.mutate();
-	});
-	return pop;
+	return pop.map(v => v.mutate());
 }
 
 let population = [];
-const generation = compose(resetPop, runPop, sortPop, selectNextGeneration, generateOffsprings, mutatePop);
+const generation = compose(runPop, sortPop, selectNextGeneration, generateOffsprings, mutatePop);
 
 function run(pop){
 	pop = initPop()
 	const stats = [];
 	for(var i = 1; i < generations; i++){
 		pop = generation(pop);
-		stats.push(pop[0].fitness);
+		stats.push(evaluateGen(pop[0]));
 	}
+	console.log(stats);
 }
 run(population);
