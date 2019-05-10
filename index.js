@@ -1,5 +1,5 @@
 let data = {
-    labels: Array.from({length: generations}, (v, k) => k),
+    labels: [],
     datasets: []
 };
 function _addDataset(chart, d){
@@ -10,6 +10,7 @@ function _addDataset(chart, d){
         fill: false,
         data: d
     });
+    if(data.labels.length < d.length) data.labels = Array.from({length: d.length}, (v, k) => k);
     chart.update();
 }
 const addDataset = fn(chart => data => {return _addDataset(chart, data)});
@@ -30,12 +31,11 @@ function init(){
         const opt = {
             mergeFactor: 0.5,
             mutationRate: 0.01,
-            dnaLength: 100,
+            dnaLength: 90,
             popSize: 100,
-            generations: 100
+            generations: 300
         }
-        const temp = new scenario(opt);
-        addDatasetSeeded(temp.run().stats);
+        addDatasetSeeded(run(opt).stats);
     });
 }
 $(init);
