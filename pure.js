@@ -6,4 +6,4 @@ const fn = (func) => {
     return (...args) => papply(func, ...args);
 }
 const compose = (...fns) => x => fns.reduce((v, f) => f(v), x);
-if(module) module.exports = {fn, compose};
+if(typeof module != 'undefined') module.exports = {fn, compose};
