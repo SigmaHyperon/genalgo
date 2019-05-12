@@ -6,4 +6,8 @@ const fn = (func) => {
     return (...args) => papply(func, ...args);
 }
 const compose = (...fns) => x => fns.reduce((v, f) => f(v), x);
-if(typeof module != 'undefined') module.exports = {fn, compose};
+const logger = (arg) => {
+    console.log(arg);
+    return arg;
+}
+if(typeof module != 'undefined') module.exports = {fn, compose, logger};

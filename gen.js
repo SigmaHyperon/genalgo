@@ -1,3 +1,15 @@
+String.prototype.hashCode = function() {
+    var hash = 0;
+    if (this.length == 0) {
+        return hash;
+    }
+    for (var i = 0; i < this.length; i++) {
+        var char = this.charCodeAt(i);
+        hash = ((hash<<5)-hash)+char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash;
+}
 class position {
 	constructor(x = 0, y = 0){
 		this.x = x;
@@ -13,9 +25,6 @@ class position {
 		return this.x === pos2.x && this.y === pos2.y;
 	}
 }
-const spawn = new position();
-const target = new position(75,25);
-const dist = target.distance(spawn);
 /**
  * 0: up
  * 1: down
@@ -45,20 +54,37 @@ const dna = {
 	random: fn((dnaLength) => () => Array.from({length: dnaLength}, (value, key) => randIntruction()))
 };
 
-const evaluateGen = gen => {
+const collision = (pos, obstacle) => {
+	return pos.x > obstacle.ll.x && pos.x < obstacle.ur.x && pos.y > obstacle.ll.y && pos.y < obstacle.ur.y;
+}
+
+const evaluateGen = fn(world => gen => {
+	const dist = world.spawn.distance(world.target);
 	let steps = 0;
-	let pos = spawn;
+	let pos = world.spawn;
 	gen.some(element => {
-		pos = pos.add(instructions[element]);
+		const nPos = pos.add(instructions[element]);
+		if((Array.isArray(world.obstacles) && !world.obstacles.some(v => collision(nPos, v))) || !Array.isArray(world.obstacles))
+			pos = pos.add(instructions[element]);
 		steps++;
-		return pos.equals(target);
+		return pos.equals(world.target);
 	});
-	return (dist - pos.distance(target)) / (dist - steps);
-};
+	return dist - pos.distance(world.target)/*  * (1 / steps) * 1000 */;
+});
+const finalPos = fn(world => gen => {
+	let pos = world.spawn;
+	gen.some(element => {
+		const nPos = pos.add(instructions[element]);
+		if((Array.isArray(world.obstacles) && !world.obstacles.some(v => collision(nPos, v))) || !Array.isArray(world.obstacles))
+			pos = pos.add(instructions[element]);
+		return pos.equals(world.target);
+	});
+	return pos;
+});
 
 const initPop = fn(dnaRandom => popSize => () => Array.from({length: popSize}, () => dnaRandom()));
 
-const runPop = pop => pop.map(element => { return {dna: element, fitness: evaluateGen(element)}; });
+const runPop = fn(evaluate => pop => pop.map(element => ({dna: element, fitness: evaluate(element)})));
 
 const sortPop = pop => pop.sort((a,b) => a.fitness - b.fitness).reverse().map(v => v.dna);
 
@@ -72,7 +98,13 @@ const generateOffsprings = fn(dnaMerge => popSize => pop => {
 	return newPop;
 });
 
-const mutatePop = dnaMutate => pop => pop.map(v => dnaMutate(v));
+const mutatePop = dnaMutate => pop => {
+	const best = pop[0].slice();
+	pop = pop.map(v => dnaMutate(v));
+	pop.push(best);
+	//console.log(pop[0].join('').hashCode() == pop[pop.length - 1].join('').hashCode());
+	return pop;
+};
 
 const preSet = options => {
 	const _dnaRandom = dna.random(options.dnaLength);
@@ -80,11 +112,12 @@ const preSet = options => {
 	const _dnaMutate = dna.mutate(options.mutationRate);
 
 	const _initPop = initPop(_dnaRandom, options.popSize);
+	const _runPop = runPop(evaluateGen(options.world));
 	const _selectNextGeneration = selectNextGeneration(options.popSize);
 	const _generateOffsprings = generateOffsprings(_dnaMerge, options.popSize);
 	const _mutatePop = mutatePop(_dnaMutate);
 
-	return {init: _initPop, generation: compose(runPop, sortPop, _selectNextGeneration, _generateOffsprings, _mutatePop)};
+	return {init: _initPop, generation: compose(_runPop, sortPop, _selectNextGeneration, _generateOffsprings, _mutatePop)};
 }
 const run = options => {
 	const {init, generation} = preSet(options);
@@ -92,7 +125,7 @@ const run = options => {
 	const stats = [];
 	for(var i = 1; i < options.generations; i++){
 		pop = generation(pop);
-		stats.push(evaluateGen(pop[0]));
+		stats.push(evaluateGen(options.world, pop[0]));
 	}
 	return {stats, best: pop[0]};
 }

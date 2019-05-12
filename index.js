@@ -33,9 +33,16 @@ function init(){
             mutationRate: 0.01,
             dnaLength: 90,
             popSize: 100,
-            generations: 300
+            generations: 40,
+            world: {
+                spawn: new position(),
+                target: new position(75, 25)
+            }
         }
-        addDatasetSeeded(run(opt).stats);
+        const result = run(opt)
+        addDatasetSeeded(result.stats);
+        console.log(result);
+        console.log(finalPos({spawn: new position(),target: new position(75, 25)}, result.best));
     });
 }
 $(init);
